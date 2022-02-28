@@ -61,20 +61,22 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
     private static final Logger Log = LoggerFactory.getLogger(OfflineMessageStore.class);
 
     private static final String INSERT_OFFLINE =
-        "INSERT INTO ofOffline (username, messageID, creationDate, messageSize, stanza) " +
-        "VALUES (?, ?, ?, ?, ?)";
+        "INSERT INTO ofOffline (username, messageID, creationDate, messageSize, stanza, resource) " +
+            "VALUES (?, ?, ?, ?, ?, ?)";
     private static final String LOAD_OFFLINE =
-        "SELECT stanza, creationDate FROM ofOffline WHERE username=? ORDER BY creationDate ASC";
+        "SELECT stanza, creationDate FROM ofOffline WHERE username=? AND resource=? ORDER BY creationDate ASC";
     private static final String LOAD_OFFLINE_MESSAGE =
         "SELECT stanza FROM ofOffline WHERE username=? AND creationDate=?";
     private static final String SELECT_COUNT_OFFLINE =
-        "SELECT COUNT(*) FROM ofOffline WHERE username=?";
+        "SELECT COUNT(*) FROM ofOffline WHERE username=? AND resource=?";
     private static final String SELECT_SIZE_OFFLINE =
         "SELECT SUM(messageSize) FROM ofOffline WHERE username=?";
     private static final String SELECT_SIZE_ALL_OFFLINE =
         "SELECT SUM(messageSize) FROM ofOffline";
     private static final String DELETE_OFFLINE =
         "DELETE FROM ofOffline WHERE username=?";
+    private static final String DELETE_OFFLINE_RESOURCE =
+        "DELETE FROM ofOffline WHERE username=? AND resource=?";
     private static final String DELETE_OFFLINE_MESSAGE =
         "DELETE FROM ofOffline WHERE username=? AND creationDate=?";
     private static final String DELETE_OFFLINE_MESSAGE_BEFORE =
@@ -167,6 +169,7 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
         }
         JID recipient = message.getTo();
         String username = recipient.getNode();
+        String resource = recipient.getResource();
         // If the username is null (such as when an anonymous user), don't store.
         if (username == null || !UserManager.getInstance().isRegisteredUser(recipient, false)) {
             Log.trace( "Not storing message for which the recipient ({}) is not a registered local user.", recipient );
@@ -191,6 +194,7 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
             pstmt.setString(3, StringUtils.dateToMillis(creationDate));
             pstmt.setInt(4, msgXML.length());
             pstmt.setString(5, msgXML);
+            pstmt.setString(6, resource);
             pstmt.executeUpdate();
 
             offlineMessage = new OfflineMessage(creationDate, message.getElement());
@@ -221,7 +225,7 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
      * @param delete true if the offline messages should be deleted.
      * @return An iterator of packets containing all offline messages.
      */
-    public Collection<OfflineMessage> getMessages(String username, boolean delete) {
+    public Collection<OfflineMessage> getMessages(String username, String resource, boolean delete) {
         List<OfflineMessage> messages = new ArrayList<>();
         Connection con = null;
         PreparedStatement pstmt = null;
@@ -230,6 +234,7 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
             con = DbConnectionManager.getConnection();
             pstmt = con.prepareStatement(LOAD_OFFLINE);
             pstmt.setString(1, username);
+            pstmt.setString(2, resource);
             rs = pstmt.executeQuery();
             while (rs.next()) {
                 String msgXML = rs.getString(1);
@@ -275,8 +280,9 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
             if (delete && !messages.isEmpty()) {
                 PreparedStatement pstmt2 = null;
                 try {
-                    pstmt2 = con.prepareStatement(DELETE_OFFLINE);
+                    pstmt2 = con.prepareStatement(DELETE_OFFLINE_RESOURCE);
                     pstmt2.setString(1, username);
+                    pstmt2.setString(2, resource);
                     pstmt2.executeUpdate();
                     removeUsernameFromSizeCache(username);
                 }
@@ -343,13 +349,19 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
      *
      * @param username the username of the user who's messages are going to be deleted.
      */
-    public void deleteMessages(String username) {
+    public void deleteMessages(String username, String resource) {
         Connection con = null;
         PreparedStatement pstmt = null;
         try {
             con = DbConnectionManager.getConnection();
-            pstmt = con.prepareStatement(DELETE_OFFLINE);
-            pstmt.setString(1, username);
+            if (resource == null) {
+                pstmt = con.prepareStatement(DELETE_OFFLINE);
+                pstmt.setString(1, username);
+            } else {
+                pstmt = con.prepareStatement(DELETE_OFFLINE_RESOURCE);
+                pstmt.setString(1, username);
+                pstmt.setString(2, resource);
+            }
             pstmt.executeUpdate();
             
             removeUsernameFromSizeCache(username);
@@ -404,7 +416,7 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
      * @param username the username of the user.
      * @return the amount of stored messages.
      */
-    public int getCount(String username) {
+    public int getCount(String username, String resource) {
         // No cache: this needs to be more accurate than the 'size' method (that does have a cache).
         // Maintaining a cache would likely add more overhead than that the cache would save.
         int count = 0;
@@ -415,6 +427,7 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
             con = DbConnectionManager.getConnection();
             pstmt = con.prepareStatement(SELECT_COUNT_OFFLINE);
             pstmt.setString(1, username);
+            pstmt.setString(2, resource);
             rs = pstmt.executeQuery();
             if (rs.next()) {
                 count = rs.getInt(1);
@@ -501,7 +514,7 @@ public class OfflineMessageStore extends BasicModule implements UserEventListene
     @Override
     public void userDeleting(User user, Map<String, Object> params) {
         // Delete all offline messages of the user
-        deleteMessages(user.getUsername());
+        deleteMessages(user.getUsername(), null);
     }
 
     @Override

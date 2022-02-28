@@ -247,19 +247,19 @@ public class MessageRouter extends BasicModule {
         log.debug( "Message sent to unreachable address: " + packet.toXML() );
         final Message msg = (Message) packet;
 
-        if ( msg.getType().equals( Message.Type.chat ) && serverName.equals( recipient.getDomain() ) && recipient.getResource() != null ) {
-            // Find an existing AVAILABLE session with non-negative priority.
-            for (JID address : routingTable.getRoutes(recipient.asBareJID(), packet.getFrom())) {
-                ClientSession session = routingTable.getClientRoute(address);
-                if (session != null && session.isInitialized()) {
-                    if (session.getPresence().getPriority() >= 0) {
-                        // If message was sent to an unavailable full JID of a user then retry using the bare JID.
-                        routingTable.routePacket( recipient.asBareJID(), packet, false );
-                        return;
-                    }
-                }
-            }
-        }
+//        if ( msg.getType().equals( Message.Type.chat ) && serverName.equals( recipient.getDomain() ) && recipient.getResource() != null ) {
+//            // Find an existing AVAILABLE session with non-negative priority.
+//            for (JID address : routingTable.getRoutes(recipient.asBareJID(), packet.getFrom())) {
+//                ClientSession session = routingTable.getClientRoute(address);
+//                if (session != null && session.isInitialized()) {
+//                    if (session.getPresence().getPriority() >= 0) {
+//                        // If message was sent to an unavailable full JID of a user then retry using the bare JID.
+//                        routingTable.routePacket( recipient.asBareJID(), packet, false );
+//                        return;
+//                    }
+//                }
+//            }
+//        }
 
         if ( serverName.equals( recipient.getDomain() ) )
         {

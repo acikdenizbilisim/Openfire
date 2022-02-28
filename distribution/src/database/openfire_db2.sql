@@ -41,6 +41,7 @@ CREATE TABLE ofOffline (
   creationDate          CHAR(15)        NOT NULL,
   messageSize           INTEGER         NOT NULL,
   stanza                VARCHAR(2000)   NOT NULL,
+  resource              VARCHAR(64),
   CONSTRAINT ofOffline_pk PRIMARY KEY (username, messageID)
 );
 

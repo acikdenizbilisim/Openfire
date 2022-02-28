@@ -86,13 +86,13 @@ public class IQOfflineMessagesHandler extends IQHandler implements ServerFeature
         JID from = packet.getFrom();
         if (offlineRequest.element("purge") != null) {
             // User requested to delete all offline messages
-            messageStore.deleteMessages(from.getNode());
+            messageStore.deleteMessages(from.getNode(), from.getResource());
         }
         else if (offlineRequest.element("fetch") != null) {
             // Mark that offline messages shouldn't be sent when the user becomes available
             stopOfflineFlooding(from);
             // User requested to receive all offline messages
-            for (OfflineMessage offlineMessage : messageStore.getMessages(from.getNode(), false)) {
+            for (OfflineMessage offlineMessage : messageStore.getMessages(from.getNode(), from.getResource(), false)) {
                 sendOfflineMessage(from, offlineMessage);
             }
         }
@@ -177,7 +177,7 @@ public class IQOfflineMessagesHandler extends IQHandler implements ServerFeature
 
         final FormField field2 = dataForm.addField();
         field2.setVariable("number_of_messages");
-        field2.addValue(String.valueOf(messageStore.getCount(senderJID.getNode())));
+        field2.addValue(String.valueOf(messageStore.getCount(senderJID.getNode(), senderJID.getResource())));
         
         final Set<DataForm> dataForms = new HashSet<>();
         dataForms.add(dataForm);
@@ -194,7 +194,7 @@ public class IQOfflineMessagesHandler extends IQHandler implements ServerFeature
         // Mark that offline messages shouldn't be sent when the user becomes available
         stopOfflineFlooding(senderJID);
         List<DiscoItem> answer = new ArrayList<>();
-        for (OfflineMessage offlineMessage : messageStore.getMessages(senderJID.getNode(), false)) {
+        for (OfflineMessage offlineMessage : messageStore.getMessages(senderJID.getNode(), senderJID.getResource(), false)) {
             answer.add(new DiscoItem(senderJID.asBareJID(), offlineMessage.getFrom().toString(),
                     XMPPDateTimeFormat.format(offlineMessage.getCreationDate()), null));
         }
